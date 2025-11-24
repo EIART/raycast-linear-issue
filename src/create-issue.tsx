@@ -54,6 +54,7 @@ type IssueCreateInput = {
   teamId: string;
   projectId?: string;
   cycleId?: string;
+  assigneeId?: string;
 };
 
 export default function Command() {
@@ -263,10 +264,11 @@ async function createLinearIssue(data: AIParsedIssue, linearKey: string) {
     }
   `;
 
-  const [teamId, projectId, cycleId] = await Promise.all([
+  const [teamId, projectId, cycleId, assigneeId] = await Promise.all([
     resolveTeamId(data.team, linearKey),
     resolveProjectId(data.project, linearKey),
     resolveCycleId(data.cycle, linearKey),
+    resolveAssigneeId(data.owner, linearKey),
   ]);
 
   if (!teamId) {
@@ -287,6 +289,9 @@ async function createLinearIssue(data: AIParsedIssue, linearKey: string) {
 
   if (cycleId) {
     input.cycleId = cycleId;
+  }
+  if (assigneeId) {
+    input.assigneeId = assigneeId;
   }
 
   const json = await linearGraphQLRequest<IssueCreatePayload>(
@@ -318,6 +323,11 @@ async function resolveCycleId(name: string | null, apiKey: string) {
   return findEntityId("cycles", name, apiKey);
 }
 
+async function resolveAssigneeId(name: string | null, apiKey: string) {
+  if (!name) return null;
+  return findUserId(name, apiKey);
+}
+
 async function findEntityId(entity: string, name: string, apiKey: string) {
   const query = `
     query {
@@ -334,11 +344,76 @@ async function findEntityId(entity: string, name: string, apiKey: string) {
     Record<string, { nodes?: { id: string; name: string }[] }>
   >(apiKey, query);
 
+  const normalized = name.trim().toLowerCase();
   const list = json?.[entity]?.nodes ?? [];
-  const match = list.find(
-    (item) => item.name.toLowerCase() === name.toLowerCase()
-  );
+  const match = list.find((item) => {
+    if (!item?.name) {
+      return false;
+    }
+    return item.name.trim().toLowerCase() === normalized;
+  });
+
+  if (!match) {
+    console.warn(
+      `Could not resolve ${entity} '${name}'. Available options:`,
+      list.map((item) => item?.name).filter(Boolean)
+    );
+  }
+
   return match?.id ?? null;
+}
+
+async function findUserId(name: string, apiKey: string) {
+  const query = `
+    query UsersForAssignment {
+      users(first: 100) {
+        nodes {
+          id
+          name
+          displayName
+          email
+        }
+      }
+    }
+  `;
+
+  const candidates = await linearGraphQLRequest<{
+    users?: {
+      nodes?: {
+        id: string;
+        name?: string;
+        displayName?: string;
+        email?: string;
+      }[];
+    };
+  }>(apiKey, query);
+
+  const normalized = normalizeOwnerQuery(name);
+  const user = candidates.users?.nodes?.find((node) => {
+    const values = [
+      node.name,
+      node.displayName,
+      node.email,
+      node.email?.split("@")[0],
+    ]
+      .filter(Boolean)
+      .map((value) => value!.trim().toLowerCase());
+    return values.includes(normalized);
+  });
+
+  if (!user) {
+    console.warn(
+      `Could not resolve assignee '${name}'. Checked users:`,
+      candidates.users?.nodes?.map((node) => node.name ?? node.displayName) ??
+        []
+    );
+  }
+
+  return user?.id ?? null;
+}
+
+function normalizeOwnerQuery(value: string) {
+  return value.replace(/^@/, "").trim().toLowerCase();
 }
 
 async function linearGraphQLRequest<TData>(
