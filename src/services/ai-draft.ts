@@ -27,7 +27,7 @@ B) Reporter Instructions → 执行人、团队、优先级等快速指令，也
 任务：
 1. **标题**：12 个中文词以内，专业语气，不用 emoji。若缺少上下文，使用“待补充的 issue 描述”并说明需补资料。
 2. **描述**：用 Markdown（中文）并保持以下小节：Summary、Steps / What Happened、Expected、Actual / Impact、Additional Context。若某部分缺信息，写出需要的信息而非捏造内容。
-3. **字段推断**：owner、team、cycle、project 只接受输入中明确提到的中文或英文名称；找不到就返回 null。owner 支持 “给XXX / assign to XXX”；team 支持 “team 用YYY / 团队：YYY”；project/cycle 同理。
+3. **字段推断**：owner、team、cycle、project 只接受输入中明确提到的中文或英文名称；找不到就返回 null。owner 请优先输出 Linear 中的显示名/英文 handle（例如 displayName 或邮箱前缀），若用户只给昵称，也要原样保留；team 支持 “team 用YYY / 团队：YYY”；project/cycle 同理。
 
 输出必须是严格 JSON（无 Markdown 包裹），schema：
 {
