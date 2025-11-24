@@ -67,7 +67,7 @@ export default function Command() {
       await showToast(
         Toast.Style.Failure,
         "Content required",
-        "Add selected text or extra context so AI has material to work with.",
+        "Add selected text or extra context so AI has material to work with."
       );
       return;
     }
@@ -76,7 +76,7 @@ export default function Command() {
       await showToast(
         Toast.Style.Failure,
         "Missing OpenAI key",
-        "Provide an OpenAI API key or enable Raycast AI in preferences.",
+        "Provide an OpenAI API key or enable Raycast AI in preferences."
       );
       return;
     }
@@ -131,15 +131,26 @@ export default function Command() {
 async function callAI(
   userInput: string,
   selectedText: string,
-  prefs: Prefs,
+  prefs: Prefs
 ): Promise<AIParsedIssue> {
   const prompt = `
-You are an assistant that extracts Linear issue details.
-You will receive:
-1. Selected text (may become part of the description)
-2. User-provided context (any format)
+You are Linear Issue Synthesizer, an expert TPM who rewrites messy notes into ready-to-create Linear tickets for a Chinese-speaking team.
 
-Return ONLY strict JSON with this shape:
+You always receive two sections:
+A) Selected Text → raw logs, requirements或笔记，可能为空。
+B) Reporter Instructions → 执行人、团队、优先级等快速指令，也可能为空。
+
+优先级：
+1. Selected Text 是事实来源。
+2. 指令明确指出 owner / team / project 等时必须采纳。
+3. 没有信息时，保持保守并提示“待补充”。
+
+任务：
+1. **标题**：12 个中文词以内，专业语气，不用 emoji。若缺少上下文，使用“待补充的 issue 描述”并说明需补资料。
+2. **描述**：用 Markdown（中文）并保持以下小节：Summary、Steps / What Happened、Expected、Actual / Impact、Additional Context。若某部分缺信息，写出需要的信息而非捏造内容。
+3. **字段推断**：owner、team、cycle、project 只接受输入中明确提到的中文或英文名称；找不到就返回 null。owner 支持 “给XXX / assign to XXX”；team 支持 “team 用YYY / 团队：YYY”；project/cycle 同理。
+
+输出必须是严格 JSON（无 Markdown 包裹），schema：
 {
   "title": "",
   "description": "",
@@ -149,19 +160,24 @@ Return ONLY strict JSON with this shape:
   "project": ""
 }
 
-Rules:
-- Respond with raw JSON, no explanation.
-- Use null for unknown fields.
-- Description must blend selected text + user context.
-- Keep the title concise and professional.
+规则：
+- 仅输出 JSON，不要解释。
+- 描述<300字，使用简体中文。
+- 如果输入里出现“芦笋录屏”“yansoul”等自定义名词，保持原样。
+- 当字段为 null 时，在 Additional Context 段落写明还缺哪些信息。
+
+示例：
+Selected Text: “修复控制台崩溃”
+Reporter Instructions: “给 yansoul，team 用芦笋录屏”
+输出 owner: "yansoul", team: "芦笋录屏", 其它 unknown 设为 null。
 `;
 
   const input = `
 === Selected Text ===
-${selectedText}
+${selectedText || "(空)"}
 
-=== Additional Context ===
-${userInput}
+=== Reporter Instructions ===
+${userInput || "(空)"}
 
 Return JSON only:
 `;
@@ -196,19 +212,22 @@ Return JSON only:
     raw = json.choices?.[0]?.message?.content ?? "";
   }
 
+  let cleanedRaw = raw.trim();
+
   try {
-    let cleanedRaw = raw.trim();
     const codeBlockMatch = cleanedRaw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (codeBlockMatch) {
       cleanedRaw = codeBlockMatch[1];
     }
 
+    console.log("AI raw payload:", cleanedRaw);
     const parsed = JSON5.parse(cleanedRaw) as Partial<AIParsedIssue>;
+    console.log("AI parsed payload:", parsed);
     return normalizeAIResult(parsed);
   } catch (err) {
-    console.error("JSON parse failed:", raw);
+    console.error("JSON parse failed:", cleanedRaw);
     throw new Error(
-      "AI returned content that was not valid JSON. Try rephrasing your input.",
+      `AI returned content that was not valid JSON. Full payload:\n${cleanedRaw || "(empty response)"}`
     );
   }
 }
@@ -252,7 +271,7 @@ async function createLinearIssue(data: AIParsedIssue, linearKey: string) {
 
   if (!teamId) {
     throw new Error(
-      "Unable to resolve a Linear team. Mention the team name explicitly in Additional Context.",
+      "Unable to resolve a Linear team. Mention the team name explicitly in Additional Context."
     );
   }
 
@@ -273,7 +292,7 @@ async function createLinearIssue(data: AIParsedIssue, linearKey: string) {
   const json = await linearGraphQLRequest<IssueCreatePayload>(
     linearKey,
     query,
-    { input },
+    { input }
   );
 
   const url = json.issueCreate?.issue?.url;
@@ -317,7 +336,7 @@ async function findEntityId(entity: string, name: string, apiKey: string) {
 
   const list = json?.[entity]?.nodes ?? [];
   const match = list.find(
-    (item) => item.name.toLowerCase() === name.toLowerCase(),
+    (item) => item.name.toLowerCase() === name.toLowerCase()
   );
   return match?.id ?? null;
 }
@@ -325,8 +344,12 @@ async function findEntityId(entity: string, name: string, apiKey: string) {
 async function linearGraphQLRequest<TData>(
   apiKey: string,
   query: string,
-  variables?: Record<string, unknown>,
+  variables?: Record<string, unknown>
 ) {
+  console.log("Linear request →", LINEAR_GRAPHQL_ENDPOINT, {
+    variables,
+  });
+
   const resp = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
     method: "POST",
     headers: {
