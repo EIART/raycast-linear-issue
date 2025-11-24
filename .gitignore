@@ -5,3 +5,9 @@ dist
 .env.*
 *.log
 .DS_Store
+coverage
+*.tsbuildinfo
+yarn-error.log
+coverage
+tmp
+.eslintcache

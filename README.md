@@ -4,11 +4,15 @@
 
 Generate high-quality Linear issues from any selected text without leaving Raycast.
 
+[English](README.md) · [中文文档](README.zh-CN.md)
+
 </div>
 
 ## Overview
 
 `raycast-linear-issue` is a Raycast extension that collects your selected text, optional notes, and uses Raycast AI (or OpenAI) to draft a structured Linear issue. It automatically maps AI output into Linear fields, looks up the right team/project/cycle IDs, and creates the issue via Linear's GraphQL API.
+
+👉 Looking for Chinese docs? Check out [README.zh-CN.md](./README.zh-CN.md).
 
 ![Linear Issue AI](assets/list-icon.png)
 
@@ -29,7 +33,7 @@ Generate high-quality Linear issues from any selected text without leaving Rayca
 ## Getting Started
 
 ```bash
-git clone https://github.com/<your-org>/raycast-linear-issue.git
+git clone https://github.com/EIART/raycast-linear-issue.git
 cd raycast-linear-issue
 npm install
 ```
@@ -84,6 +88,10 @@ The project uses TypeScript strict mode and Raycast's ESLint config.
 - Additional Linear fields (priority, labels, assignee).
 - Better multi-language support.
 - Smarter prompt that adapts to company-specific taxonomy.
+
+## Contributing
+
+Issues and pull requests are welcome — check out [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow and quality checklist. For release history, see [CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 

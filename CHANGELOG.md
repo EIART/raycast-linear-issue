@@ -14,5 +14,5 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/) and u
 - Dual AI provider support (Raycast AI or OpenAI).
 - Basic documentation and MIT license.
 
-[1.0.0]: https://github.com/<your-org>/raycast-linear-issue/releases/tag/v1.0.0
+[1.0.0]: https://github.com/EIART/raycast-linear-issue/releases/tag/v1.0.0
 

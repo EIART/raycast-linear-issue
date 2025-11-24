@@ -1,3 +1,38 @@
+# Contributing to Linear Issue AI
+
+Thanks for your interest in improving this Raycast extension! Contributions of all kinds are welcome—bug reports, feature ideas, docs updates, or code changes.
+
+## Getting Started
+
+1. Fork the repository and create a feature branch (`git checkout -b feature/your-feature`).
+2. Install dependencies with `npm install`.
+3. Run the extension locally via `ray develop`.
+
+## Development Checklist
+
+- Keep the TypeScript strict mode warnings at zero.
+- Run `npm run lint` before pushing. This executes Raycast's ESLint and Prettier checks.
+- Prefer English for code comments and UI strings.
+- Include screenshots/gifs when proposing UX/UI changes.
+
+## Reporting Issues
+
+When opening an issue, please include:
+
+- Raycast version and macOS version.
+- Steps to reproduce (screenshots or screen recordings are helpful).
+- Expected vs actual behavior.
+
+## Pull Requests
+
+- Keep PRs focused; avoid combining unrelated changes.
+- Describe the motivation, approach, and testing in the PR description.
+- Link any related issues.
+- After opening a PR, ensure CI (lint/build) is green.
+
+## Code of Conduct
+
+Be respectful and constructive. By participating you agree to follow the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/). If inappropriate behavior occurs, please contact the maintainers.
 # Contributing Guide
 
 Thanks for taking the time to improve **Linear Issue AI**! This document explains how to set up your environment, propose changes, and ship a release-quality Raycast extension.

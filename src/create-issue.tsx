@@ -11,6 +11,10 @@ import {
 import fetch from "node-fetch";
 import JSON5 from "json5";
 
+const LINEAR_GRAPHQL_ENDPOINT = "https://api.linear.app/graphql";
+const OPENAI_CHAT_COMPLETIONS_ENDPOINT =
+  "https://api.openai.com/v1/chat/completions";
+
 type Prefs = {
   linearApiKey: string;
   useRaycastAI: boolean;
@@ -31,6 +35,27 @@ type FormValues = {
   userInput?: string;
 };
 
+type GraphQLResponse<T> = {
+  data?: T;
+  errors?: { message?: string }[];
+};
+
+type IssueCreatePayload = {
+  issueCreate?: {
+    issue?: {
+      url: string;
+    };
+  };
+};
+
+type IssueCreateInput = {
+  title: string;
+  description: string;
+  teamId: string;
+  projectId?: string;
+  cycleId?: string;
+};
+
 export default function Command() {
   const prefs = getPreferenceValues<Prefs>();
 
@@ -42,7 +67,16 @@ export default function Command() {
       await showToast(
         Toast.Style.Failure,
         "Content required",
-        "Add selected text or additional context.",
+        "Add selected text or extra context so AI has material to work with.",
+      );
+      return;
+    }
+
+    if (!prefs.useRaycastAI && !prefs.openaiKey) {
+      await showToast(
+        Toast.Style.Failure,
+        "Missing OpenAI key",
+        "Provide an OpenAI API key or enable Raycast AI in preferences.",
       );
       return;
     }
@@ -76,16 +110,18 @@ export default function Command() {
         </ActionPanel>
       }
     >
-      <Form.Description text="Paste highlighted text and add context so AI can craft a great Linear issue." />
+      <Form.Description text="Share the raw signal (selected text) plus optional context so AI can draft a clear Linear issue." />
       <Form.TextArea
         id="selectedText"
         title="Selected Text"
-        placeholder="Paste the text you highlighted or describe the problem."
+        placeholder="Paste highlighted text or describe the bug/idea in your own words."
+        enableMarkdown
       />
       <Form.TextArea
         id="userInput"
         title="Additional Context"
         placeholder="Optional: owner, team, desired outcome, blockers…"
+        enableMarkdown
       />
     </Form>
   );
@@ -137,7 +173,7 @@ Return JSON only:
       creativity: 0.3,
     });
   } else {
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    const resp = await fetch(OPENAI_CHAT_COMPLETIONS_ENDPOINT, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${prefs.openaiKey}`,
@@ -180,13 +216,18 @@ Return JSON only:
 // Guard against missing fields and always return the expected object shape.
 function normalizeAIResult(data: Partial<AIParsedIssue>): AIParsedIssue {
   return {
-    title: data?.title ?? null,
-    description: data?.description ?? null,
-    owner: data?.owner ?? null,
-    team: data?.team ?? null,
-    cycle: data?.cycle ?? null,
-    project: data?.project ?? null,
+    title: sanitizeStringField(data?.title),
+    description: sanitizeStringField(data?.description),
+    owner: sanitizeStringField(data?.owner),
+    team: sanitizeStringField(data?.team),
+    cycle: sanitizeStringField(data?.cycle),
+    project: sanitizeStringField(data?.project),
   };
+}
+
+function sanitizeStringField(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }
 
 // Create a Linear issue and map AI result to concrete IDs.
@@ -203,37 +244,39 @@ async function createLinearIssue(data: AIParsedIssue, linearKey: string) {
     }
   `;
 
-  const input = {
+  const [teamId, projectId, cycleId] = await Promise.all([
+    resolveTeamId(data.team, linearKey),
+    resolveProjectId(data.project, linearKey),
+    resolveCycleId(data.cycle, linearKey),
+  ]);
+
+  if (!teamId) {
+    throw new Error(
+      "Unable to resolve a Linear team. Mention the team name explicitly in Additional Context.",
+    );
+  }
+
+  const input: IssueCreateInput = {
     title: data.title ?? "AI generated issue",
     description: data.description ?? "",
-    teamId: await resolveTeamId(data.team, linearKey),
-    projectId: await resolveProjectId(data.project, linearKey),
-    cycleId: await resolveCycleId(data.cycle, linearKey),
+    teamId,
   };
 
-  const resp = await fetch("https://api.linear.app/graphql", {
-    method: "POST",
-    headers: {
-      Authorization: linearKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query, variables: { input } }),
-  });
-
-  if (!resp.ok) {
-    throw new Error(`Linear request failed (${resp.status})`);
+  if (projectId) {
+    input.projectId = projectId;
   }
 
-  const json = (await resp.json()) as {
-    errors?: { message?: string }[];
-    data?: { issueCreate?: { issue?: { url: string } } };
-  };
-
-  if (json.errors?.length) {
-    throw new Error(json.errors.map((err) => err.message).join("; "));
+  if (cycleId) {
+    input.cycleId = cycleId;
   }
 
-  const url = json.data?.issueCreate?.issue?.url;
+  const json = await linearGraphQLRequest<IssueCreatePayload>(
+    linearKey,
+    query,
+    { input },
+  );
+
+  const url = json.issueCreate?.issue?.url;
   if (!url) {
     throw new Error("Linear returned an unexpected response");
   }
@@ -268,26 +311,44 @@ async function findEntityId(entity: string, name: string, apiKey: string) {
     }
   `;
 
-  const resp = await fetch("https://api.linear.app/graphql", {
+  const json = await linearGraphQLRequest<
+    Record<string, { nodes?: { id: string; name: string }[] }>
+  >(apiKey, query);
+
+  const list = json?.[entity]?.nodes ?? [];
+  const match = list.find(
+    (item) => item.name.toLowerCase() === name.toLowerCase(),
+  );
+  return match?.id ?? null;
+}
+
+async function linearGraphQLRequest<TData>(
+  apiKey: string,
+  query: string,
+  variables?: Record<string, unknown>,
+) {
+  const resp = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
     method: "POST",
     headers: {
       Authorization: apiKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, variables }),
   });
 
   if (!resp.ok) {
-    throw new Error(`Failed to fetch ${entity} from Linear (${resp.status})`);
+    throw new Error(`Linear request failed (${resp.status})`);
   }
 
-  const json = (await resp.json()) as {
-    data?: Record<string, { nodes?: { id: string; name: string }[] }>;
-  };
+  const json = (await resp.json()) as GraphQLResponse<TData>;
 
-  const list = json.data?.[entity]?.nodes ?? [];
-  const match = list.find(
-    (item) => item.name.toLowerCase() === name.toLowerCase(),
-  );
-  return match?.id ?? null;
+  if (json.errors?.length) {
+    throw new Error(json.errors.map((err) => err.message).join("; "));
+  }
+
+  if (!json.data) {
+    throw new Error("Linear response did not include data");
+  }
+
+  return json.data;
 }

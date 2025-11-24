@@ -1,5 +1,24 @@
 ## Summary
 
+Please provide a short explanation of the change and the motivation behind it.
+
+## Testing
+
+- [ ] `npm run lint`
+- [ ] `ray develop` (if UI/UX changes)
+- [ ] Other (describe):
+
+## Screenshots / Screen Recordings
+
+Include before/after visuals for UX-related changes.
+
+## Checklist
+
+- [ ] I added/updated tests (if applicable).
+- [ ] I updated documentation or screenshots when needed.
+- [ ] I linked any related issues.
+## Summary
+
 <!-- Describe the change, motivation and context. Keep it concise. -->
 
 ## Testing

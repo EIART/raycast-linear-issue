@@ -12,6 +12,9 @@
     "type": "git",
     "url": "https://github.com/EIART/raycast-linear-issue.git"
   },
+  "bugs": {
+    "url": "https://github.com/EIART/raycast-linear-issue/issues"
+  },
   "keywords": [
     "raycast",
     "linear",
@@ -72,6 +75,9 @@
     "dev": "ray develop",
     "build": "ray build",
     "lint": "ray lint"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "overrides": {
     "@types/react": "^18.3.3"
