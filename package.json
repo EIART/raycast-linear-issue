@@ -5,6 +5,7 @@
   "description": "Create Linear issue from selected text + natural language input using AI",
   "icon": "list-icon.png",
   "author": "sean",
+  "owner": "liuzhengyanshuo",
   "license": "MIT",
   "version": "1.0.0",
   "homepage": "https://github.com/EIART/raycast-linear-issue#readme",
